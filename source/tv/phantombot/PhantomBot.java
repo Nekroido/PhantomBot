@@ -163,6 +163,7 @@ public final class PhantomBot implements Listener {
 
     /* Discord Configuration */
     private String discordToken = "";
+    private Long discordDefaultGuildId;
 
     /* Caches */
     private FollowersCache followersCache;
@@ -395,6 +396,11 @@ public final class PhantomBot implements Listener {
 
         /* Set the Discord variables */
         this.discordToken = this.pbProperties.getProperty("discord_token", "");
+        try {
+            this.discordDefaultGuildId = Long.parseLong(this.pbProperties.getProperty("discord_default_guild"));
+        } catch(NumberFormatException nfe) {
+            this.discordDefaultGuildId = null;
+        }
 
         /* Set the TwitchAlerts variables */
         this.twitchAlertsKey = this.pbProperties.getProperty("twitchalertskey", "");
@@ -810,7 +816,7 @@ public final class PhantomBot implements Listener {
 
         /* Connect to Discord if the data is present. */
         if (!discordToken.isEmpty()) {
-            DiscordAPI.instance().connect(discordToken);
+            DiscordAPI.instance().connect(discordToken, discordDefaultGuildId);
         }
 
         /* Set Streamlabs currency code, if possible */

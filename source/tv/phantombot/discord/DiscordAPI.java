@@ -43,6 +43,7 @@ import discord4j.gateway.intent.Intent;
 import discord4j.gateway.intent.IntentSet;
 import discord4j.rest.util.Snowflake;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Timer;
@@ -79,6 +80,7 @@ public class DiscordAPI extends DiscordUtil {
     private static DiscordClient client;
     private static GatewayDiscordClient gateway;
     private static Guild guild;
+    private static Long defaultGuildId;
     private static ConnectionState reconnectState = ConnectionState.DISCONNECTED;
     private static DiscordClientBuilder builder;
     private boolean ready;
@@ -121,12 +123,14 @@ public class DiscordAPI extends DiscordUtil {
      * Method to connect to Discord.
      *
      * @param token
+     * @param defaultGuildId
      */
-    public void connect(String token) {
+    public void connect(String token, Long defaultGuildId) {
         if (DiscordAPI.builder == null) {
             DiscordAPI.builder = DiscordClientBuilder.create(token);
             DiscordAPI.client = (DiscordClient) DiscordAPI.builder.build();
         }
+        DiscordAPI.defaultGuildId = defaultGuildId;
 
         this.connect();
     }
@@ -271,11 +275,21 @@ public class DiscordAPI extends DiscordUtil {
      * Method to set the guild and shard objects.
      */
     private void setGuildAndShard(List<GuildCreateEvent> events) {
-        // PhantomBot only works in one server, so throw an error if there's multiple.
         if (events.size() > 1) {
-            com.gmt2001.Console.err.println("Discord bot account connected to multiple servers. Now disconnecting from Discord...");
-            DiscordAPI.gateway.logout();
-            reconnectState = ConnectionState.CANNOT_RECONNECT;
+            // Connected to multiple guild servers
+            if (DiscordAPI.defaultGuildId != null) {
+                var match = events.stream()
+                                        .filter(e -> e.getGuild().getId().equals(DiscordAPI.defaultGuildId))
+                                        .findFirst()
+                                        .orElse(null);
+                DiscordAPI.guild = match != null ? match.getGuild() : null;
+            }
+
+            if (DiscordAPI.guild == null) {
+                com.gmt2001.Console.err.println("Define valid `discord_default_guild` to connect to multiple servers. Now disconnecting from Discord...");
+                DiscordAPI.gateway.logout();
+                reconnectState = ConnectionState.CANNOT_RECONNECT;
+            }
         } else {
             DiscordAPI.guild = events.get(0).getGuild();
         }
@@ -304,6 +318,22 @@ public class DiscordAPI extends DiscordUtil {
     }
 
     /**
+     * Method that will return a comma separated list of guild names
+     *
+     * @return {String} guilds
+     */
+    private static String getGuildNamesFormatted(List<GuildCreateEvent> events)
+    {
+        List<String> guilds = new ArrayList<>();
+
+        for(GuildCreateEvent event : events) {
+            guilds.add("[" + event.getGuild().getName() + "]");
+        }
+
+        return String.join(", ", guilds);
+    }
+
+    /**
      * Class to listen to events.
      */
     private static class DiscordEventListener {
@@ -315,7 +345,7 @@ public class DiscordAPI extends DiscordUtil {
         }
 
         public static void onDiscordReadyEvent(List<GuildCreateEvent> events) {
-            com.gmt2001.Console.out.println("Successfully authenticated with Discord.");
+            com.gmt2001.Console.out.println(String.format("Successfully authenticated with Discord server(s): %s.", DiscordAPI.getGuildNamesFormatted(events)));
 
             DiscordAPI.instance().ready = true;
 
