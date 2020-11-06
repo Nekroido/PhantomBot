@@ -279,7 +279,7 @@ public class DiscordAPI extends DiscordUtil {
             // Connected to multiple guild servers
             if (DiscordAPI.defaultGuildId != null) {
                 var match = events.stream()
-                                        .filter(e -> e.getGuild().getId().equals(DiscordAPI.defaultGuildId))
+                                        .filter(e -> DiscordAPI.defaultGuildId.equals(e.getGuild().getId().asLong()))
                                         .findFirst()
                                         .orElse(null);
                 DiscordAPI.guild = match != null ? match.getGuild() : null;
